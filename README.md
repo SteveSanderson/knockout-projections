@@ -33,7 +33,7 @@ Now `squares` is an observable array containing `[1, 4, 9, 16, 25]`. Let's modif
     sourceItems.push(6);
     // 'squares' has automatically updated and now contains [1, 4, 9, 16, 25, 36]
     
-This work with any transformation of the source data, e.g.:
+This works with any transformation of the source data, e.g.:
 
     sourceItems.reverse();
     // 'squares' now contains [36, 25, 16, 9, 4, 1]
@@ -43,7 +43,7 @@ function that performs the mapping is only called when strictly necessary (usual
 items). When you add new items to the source data, we *don't* need to re-map the existing ones. When you reorder
 the source data, the output order is correspondingly changed *without* remapping anything.
 
-This efficiently might not matter much if you're just squaring numbers, but when you are mapping complex nested
+This efficiency might not matter much if you're just squaring numbers, but when you are mapping complex nested
 graphs of custom objects, it can be important to perform each mapping update with the minumum of work.
 
 **Filtering**
