@@ -8,7 +8,22 @@ See the Apache Version 2.0 License for specific language governing permissions a
 ------------------------------------------------------------------------------
 */
 
-(function(global, undefined) {
+(function (root, factory) {
+    'use strict';
+
+    if (typeof root.define === 'function' && root.define.amd) {
+        // AMD. Register as an anonymous module.
+        root.define(['knockout'], factory);
+    } else if (typeof module !== 'undefined') {
+        // Node. Does not work with strict CommonJS, but
+        // only CommonJS-like enviroments that support module.exports,
+        // like Node.
+        module.exports = factory(require('knockout'));
+    } else if('ko' in root) {
+        // Browser globals (root is window)
+        factory(root.ko);
+    }
+}(this, function (ko, undefined) {
     'use strict';
 
     var exclusionMarker = {};
@@ -324,19 +339,8 @@ See the Apache Version 2.0 License for specific language governing permissions a
         addProjectionFunctions(ko, ko.observableArray.fn); // Make all observable arrays projectable
     }
 
-    // Determines which module loading scenario we're in, grabs dependencies, and attaches to KO
-    function prepareExports() {
-        if (typeof module !== 'undefined') {
-            // Node.js case - load KO synchronously
-            var ko = require('knockout');
-            attachToKo(ko);
-            module.exports = ko;
-        } else if ('ko' in global) {
-            // Non-module case - attach to the global instance
-            attachToKo(global.ko);
-        }
-    }
+    attachToKo(ko);
 
-    prepareExports();
+    return ko;
 
-})(this);
+}));
