@@ -334,7 +334,11 @@ See the Apache Version 2.0 License for specific language governing permissions a
         } else if ('ko' in global) {
             // Non-module case - attach to the global instance
             attachToKo(global.ko);
-        }
+        } else if (typeof define === 'function' && define.amd) {
+	    require(['knockout'],function(ko){
+	        attachToKo(ko);
+	    })
+	}
     }
 
     prepareExports();
