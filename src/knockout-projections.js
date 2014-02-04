@@ -27,8 +27,8 @@ See the Apache Version 2.0 License for specific language governing permissions a
         // Set up observables
         this.outputArrayIndex = ko.observable(initialOutputArrayIndex); // When excluded, it's the position the item would go if it became included
         this.mappedValueComputed = ko.computed(this.mappingEvaluator, this);
+        this.previousMappedValue = this.mappedValueComputed.peek(); // Must be set before subscription to mappedValueComputed, if not the subscription may be triggered
         this.mappedValueComputed.subscribe(this.onMappingResultChanged, this);
-        this.previousMappedValue = this.mappedValueComputed.peek();
     }
 
     StateItem.prototype.dispose = function() {
