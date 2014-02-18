@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+    <metadata>
+        <id>knockout.projections</id>
+        <version>1.0.0</version>
+        <authors>Steven Sanderson</authors>
+        <owners>Steven Sanderson</owners>
+        <licenseUrl>http://www.apache.org/licenses/LICENSE-2.0</licenseUrl>
+        <projectUrl>https://github.com/SteveSanderson/knockout-projections</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>Knockout.js observable arrays get smarter.</description>
+        <summary>This plugin adds observable map and filter features to observable arrays, so you can transform collections in arbitrary ways and have the results automatically update whenever the underlying source data changes.</summary>
+        <dependencies>
+            <dependency id="knockoutjs" version="3.0.0" />
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="dist\knockout-projections-1.0.0.js" target="content\Scripts\knockout-projections-1.0.0.js" />
+        <file src="dist\knockout-projections-1.0.0.min.js" target="content\Scripts\knockout-projections-1.0.0.min.js" />
+    </files>
+</package>
