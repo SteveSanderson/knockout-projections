@@ -1,4 +1,4 @@
-/*! Knockout projections plugin
+/*! Knockout projections plugin - version 1.1.0-pre
 ------------------------------------------------------------------------------
 Copyright (c) Microsoft Corporation
 All rights reserved.

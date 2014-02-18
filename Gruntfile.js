@@ -9,8 +9,9 @@ See the Apache Version 2.0 License for specific language governing permissions a
 */
 
 module.exports = function(grunt) {
+    var pkg = grunt.file.readJSON('package.json');
     grunt.initConfig({
-        pkg: grunt.file.readJSON('package.json'),
+        pkg: pkg,
         jshint: {
             all: ['src/knockout-projections.js'],
             options: {
@@ -40,9 +41,14 @@ module.exports = function(grunt) {
             }
         },
         concat: {
+            options: {
+                process: function(src) {
+                    return src.replace('@@version@@', pkg.version);
+                }
+            },
             dist: {
                 src: ['src/knockout-projections.js'],
-                dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.js'
+                dest: 'dist/<%= pkg.name %>.js'
             }
         },
         uglify: {
@@ -50,8 +56,8 @@ module.exports = function(grunt) {
                 preserveComments: 'some'
             },
             build: {
-                src: 'dist/<%= pkg.name %>-<%= pkg.version %>.js',
-                dest: 'dist/<%= pkg.name %>-<%= pkg.version %>.min.js'
+                src: 'dist/<%= pkg.name %>.js',
+                dest: 'dist/<%= pkg.name %>.min.js'
             }
         },
         jasmine_node: {
