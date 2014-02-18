@@ -60,6 +60,16 @@ module.exports = function(grunt) {
                 dest: 'dist/<%= pkg.name %>.min.js'
             }
         },
+        'string-replace': {
+            dist: {
+                files: {
+                    'package.nuspec': 'package.nuspec'
+                },
+                options: {
+                    replacements: [{ pattern: /<version>.*?<\/version>/, replacement: '<version><%= pkg.version %></version>' }]
+                }
+            }
+        },
         jasmine_node: {
             specNameMatcher: "spec",
             projectRoot: ".",
@@ -81,8 +91,9 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-concat');
     grunt.loadNpmTasks('grunt-jasmine-node');
     grunt.loadNpmTasks('grunt-contrib-watch');
+    grunt.loadNpmTasks('grunt-string-replace');
 
     grunt.registerTask('test', ['jasmine_node']);
-    grunt.registerTask('build', ['concat', 'uglify']);
+    grunt.registerTask('build', ['concat', 'string-replace', 'uglify']);
     grunt.registerTask('default', ['jshint', 'test', 'build']);
 };
