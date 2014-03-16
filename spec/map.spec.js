@@ -29,6 +29,14 @@ See the Apache Version 2.0 License for specific language governing permissions a
             expect(mappedArray()).toEqual([5, 4, 5]);
         });
 
+        it("supports an alternative 'options' object syntax", function () {
+            var sourceArray = ko.observableArray(sampleData.slice(0)),
+                mappedArray = sourceArray.map({
+                    mapping: function(item) { return item.length; }
+                });
+            expect(mappedArray()).toEqual([5, 4, 5]);
+        });
+
         it("issues notifications when the underlying data changes, updating the mapped result", function () {
             var sourceArray = ko.observableArray(sampleData.slice(0)),
                 mappedArray = sourceArray.map(function(item) { return item.length; }),
@@ -358,6 +366,48 @@ See the Apache Version 2.0 License for specific language governing permissions a
             ]);
             expect(outerMappingsCallCount).toBe(4);
             expect(innerMappingsCallCount).toBe(7);
+        });
+
+        it("is possible to provide a 'disposeItem' option to clear up the mapped object", function() {
+            var modelItem = {
+                    name: ko.observable('Annie')
+                },
+                underlyingArray = ko.observableArray(),
+                disposedItems = [],
+                mappedArray = underlyingArray.map({
+                    mapping: function(item) {
+                        return {
+                            nameUpper: ko.computed(function() {
+                                return item.name().toUpperCase();
+                            })
+                        };
+                    },
+                    disposeItem: function(mappedItem) {
+                        disposedItems.push(mappedItem.nameUpper());
+                        mappedItem.nameUpper.dispose();
+                    }
+                });
+
+            // See that each mapped item causes a subscription on the underlying observable
+            expect(modelItem.name.getSubscriptionsCount()).toBe(0);
+            underlyingArray.push(modelItem);
+            underlyingArray.push(modelItem);
+            expect(modelItem.name.getSubscriptionsCount()).toBe(2);
+
+            // See that removing items causes subscriptions to be disposed
+            underlyingArray.pop();
+            expect(modelItem.name.getSubscriptionsCount()).toBe(1);
+            expect(disposedItems).toEqual(['ANNIE']);
+
+            // See that mutating the observable doesn't affect its subscription count
+            modelItem.name('Clarabel');
+            expect(ko.toJS(mappedArray)).toEqual([{ nameUpper: 'CLARABEL' }]);
+            expect(modelItem.name.getSubscriptionsCount()).toBe(1);
+
+            // ... and removing after the mutation still cleans everything up
+            underlyingArray.pop();
+            expect(modelItem.name.getSubscriptionsCount()).toBe(0);
+            expect(disposedItems).toEqual(['ANNIE', 'CLARABEL']);            
         });
     });
 })();

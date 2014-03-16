@@ -13,11 +13,11 @@ See the Apache Version 2.0 License for specific language governing permissions a
 
     var exclusionMarker = {};
 
-    function StateItem(ko, inputItem, initialStateArrayIndex, initialOutputArrayIndex, mapping, arrayOfState, outputObservableArray) {
+    function StateItem(ko, inputItem, initialStateArrayIndex, initialOutputArrayIndex, mappingOptions, arrayOfState, outputObservableArray) {
         // Capture state for later use
         this.inputItem = inputItem;
         this.stateArrayIndex = initialStateArrayIndex;
-        this.mapping = mapping;
+        this.mappingOptions = mappingOptions;
         this.arrayOfState = arrayOfState;
         this.outputObservableArray = outputObservableArray;
         this.outputArray = this.outputObservableArray.peek();
@@ -32,11 +32,16 @@ See the Apache Version 2.0 License for specific language governing permissions a
     }
 
     StateItem.prototype.dispose = function() {
+        var mappedItem = this.mappedValueComputed();
         this.mappedValueComputed.dispose();
+
+        if (this.mappingOptions.disposeItem) {
+            this.mappingOptions.disposeItem(mappedItem);
+        }
     };
 
     StateItem.prototype.mappingEvaluator = function() {
-        var mappedValue = this.mapping(this.inputItem, this.outputArrayIndex),
+        var mappedValue = this.mappingOptions.mapping(this.inputItem, this.outputArrayIndex),
             newInclusionState = mappedValue !== exclusionMarker;
 
         // Inclusion state changes can *only* happen as a result of changing an individual item.
@@ -114,12 +119,12 @@ See the Apache Version 2.0 License for specific language governing permissions a
         }
     }
 
-    function insertOutputItem(ko, diffEntry, movedStateItems, stateArrayIndex, outputArrayIndex, mapping, arrayOfState, outputObservableArray, outputArray) {
+    function insertOutputItem(ko, diffEntry, movedStateItems, stateArrayIndex, outputArrayIndex, mappingOptions, arrayOfState, outputObservableArray, outputArray) {
         // Retain the existing mapped value if this is a move, otherwise perform mapping
         var isMoved = typeof diffEntry.moved === 'number',
             stateItem = isMoved ?
                 movedStateItems[diffEntry.moved] :
-                new StateItem(ko, diffEntry.value, stateArrayIndex, outputArrayIndex, mapping, arrayOfState, outputObservableArray);
+                new StateItem(ko, diffEntry.value, stateArrayIndex, outputArrayIndex, mappingOptions, arrayOfState, outputObservableArray);
         arrayOfState.splice(stateArrayIndex, 0, stateItem);
         if (stateItem.isIncluded) {
             outputArray.splice(outputArrayIndex, 0, stateItem.mappedValueComputed.peek());
@@ -183,7 +188,7 @@ See the Apache Version 2.0 License for specific language governing permissions a
         }
     }
 
-    function respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mapping) {
+    function respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mappingOptions) {
         return inputObservableArray.subscribe(function(diff) {
             if (!diff.length) {
                 return;
@@ -205,7 +210,7 @@ See the Apache Version 2.0 License for specific language governing permissions a
                     switch (diffEntry.status) {
                     case 'added':
                         // Add to output, and update indexes
-                        var stateItem = insertOutputItem(ko, diffEntry, movedStateItems, stateArrayIndex, outputArrayIndex, mapping, arrayOfState, outputObservableArray, outputArray);
+                        var stateItem = insertOutputItem(ko, diffEntry, movedStateItems, stateArrayIndex, outputArrayIndex, mappingOptions, arrayOfState, outputObservableArray, outputArray);
                         if (stateItem.isIncluded) {
                             outputArrayIndex++;
                         }
@@ -235,17 +240,22 @@ See the Apache Version 2.0 License for specific language governing permissions a
     }
 
     // Mapping
-    function observableArrayMap(ko, mapping) {
+    function observableArrayMap(ko, mappingOptions) {
         var inputObservableArray = this,
             arrayOfState = [],
             outputArray = [],
             outputObservableArray = ko.observableArray(outputArray),
             originalInputArrayContents = inputObservableArray.peek();
 
+        // Shorthand syntax - just pass a function instead of an options object
+        if (typeof mappingOptions === 'function') {
+            mappingOptions = { mapping: mappingOptions };
+        }
+
         // Initial state: map each of the inputs
         for (var i = 0; i < originalInputArrayContents.length; i++) {
             var inputItem = originalInputArrayContents[i],
-                stateItem = new StateItem(ko, inputItem, i, outputArray.length, mapping, arrayOfState, outputObservableArray),
+                stateItem = new StateItem(ko, inputItem, i, outputArray.length, mappingOptions, arrayOfState, outputObservableArray),
                 mappedValue = stateItem.mappedValueComputed.peek();
             arrayOfState.push(stateItem);
 
@@ -255,7 +265,7 @@ See the Apache Version 2.0 License for specific language governing permissions a
         }
 
         // If the input array changes structurally (items added or removed), update the outputs
-        var inputArraySubscription = respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mapping);
+        var inputArraySubscription = respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mappingOptions);
 
         // Return value is a readonly computed which can track its own changes to permit chaining.
         // When disposed, it cleans up everything it created.
