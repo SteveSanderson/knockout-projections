@@ -404,8 +404,8 @@ See the Apache Version 2.0 License for specific language governing permissions a
             expect(ko.toJS(mappedArray)).toEqual([{ nameUpper: 'CLARABEL' }]);
             expect(modelItem.name.getSubscriptionsCount()).toBe(1);
 
-            // ... and removing after the mutation still cleans everything up
-            underlyingArray.pop();
+            // See that disposing the whole mapped array also triggers the disposeItem callbacks
+            mappedArray.dispose();
             expect(modelItem.name.getSubscriptionsCount()).toBe(0);
             expect(disposedItems).toEqual(['ANNIE', 'CLARABEL']);            
         });
