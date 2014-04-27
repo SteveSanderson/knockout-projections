@@ -336,7 +336,12 @@ See the Apache Version 2.0 License for specific language governing permissions a
 
     // Determines which module loading scenario we're in, grabs dependencies, and attaches to KO
     function prepareExports() {
-        if (typeof module !== 'undefined') {
+        if (typeof define === "function" && define["amd"]) {
+            // AMD anonymous module with hard-coded dependency on "knockout"
+            define(["knockout", "exports"], function (ko, exports) {
+                attachToKo(ko);
+            });
+        }else if (typeof module !== 'undefined') {
             // Node.js case - load KO synchronously
             var ko = require('knockout');
             attachToKo(ko);
