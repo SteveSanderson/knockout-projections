@@ -17,7 +17,8 @@ module.exports = function(grunt) {
             options: {
                 globals: {
                     module: true,
-                    require: true
+                    require: true,
+                    define: true
                 },  
   
                 // Restrictions
