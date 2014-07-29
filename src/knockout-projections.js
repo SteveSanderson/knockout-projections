@@ -244,35 +244,45 @@ See the Apache Version 2.0 License for specific language governing permissions a
         var inputObservableArray = this,
             arrayOfState = [],
             outputArray = [],
-            outputObservableArray = ko.observableArray(outputArray),
-            originalInputArrayContents = inputObservableArray.peek();
+            outputObservableArray = ko.observableArray(outputArray);
 
         // Shorthand syntax - just pass a function instead of an options object
         if (typeof mappingOptions === 'function') {
             mappingOptions = { mapping: mappingOptions };
         }
 
-        // Initial state: map each of the inputs
-        for (var i = 0; i < originalInputArrayContents.length; i++) {
-            var inputItem = originalInputArrayContents[i],
-                stateItem = new StateItem(ko, inputItem, i, outputArray.length, mappingOptions, arrayOfState, outputObservableArray),
-                mappedValue = stateItem.mappedValueComputed.peek();
-            arrayOfState.push(stateItem);
+        var inputArraySubscription;
+        function initiateAndSubscribeToChanges() {
+            // Initial state: map each of the inputs
+            var originalInputArrayContents = inputObservableArray.peek();
+            for (var i = 0; i < originalInputArrayContents.length; i++) {
+                var inputItem = originalInputArrayContents[i],
+                    stateItem = new StateItem(ko, inputItem, i, outputArray.length, mappingOptions, arrayOfState, outputObservableArray),
+                    mappedValue = stateItem.mappedValueComputed.peek();
+                arrayOfState.push(stateItem);
 
-            if (stateItem.isIncluded) {
-                outputArray.push(mappedValue);
+                if (stateItem.isIncluded) {
+                    outputArray.push(mappedValue);
+                }
             }
+            // If the input array changes structurally (items added or removed), update the outputs
+            inputArraySubscription = respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mappingOptions);
         }
-
-        // If the input array changes structurally (items added or removed), update the outputs
-        var inputArraySubscription = respondToArrayStructuralChanges(ko, inputObservableArray, arrayOfState, outputArray, outputObservableArray, mappingOptions);
 
         // Return value is a readonly computed which can track its own changes to permit chaining.
         // When disposed, it cleans up everything it created.
-        var returnValue = ko.computed(outputObservableArray).extend({ trackArrayChanges: true }),
+        var returnValue = ko.computed({ read: function() {
+                if(!inputArraySubscription) {
+                    initiateAndSubscribeToChanges();
+                }
+
+                return outputObservableArray();
+            }, deferEvaluation: true }).extend({ trackArrayChanges: true }),
             originalDispose = returnValue.dispose;
         returnValue.dispose = function() {
-            inputArraySubscription.dispose();
+            if(inputArraySubscription) {
+                inputArraySubscription.dispose();
+            }
             ko.utils.arrayForEach(arrayOfState, function(stateItem) {
                 stateItem.dispose();
             });
@@ -302,7 +312,7 @@ See the Apache Version 2.0 License for specific language governing permissions a
     var projectionFunctionsCacheName = '_ko.projections.cache';
 
     function attachProjectionFunctionsCache(ko) {
-        // Wraps callback so that, when invoked, its arguments list is prefixed by 'ko' and 'this' 
+        // Wraps callback so that, when invoked, its arguments list is prefixed by 'ko' and 'this'
         function makeCaller(ko, callback) {
             return function() {
                 return callback.apply(this, [ko].concat(Array.prototype.slice.call(arguments, 0)));
