@@ -26,23 +26,51 @@ See the Apache Version 2.0 License for specific language governing permissions a
 
         // Set up observables
         this.outputArrayIndex = ko.observable(initialOutputArrayIndex); // When excluded, it's the position the item would go if it became included
+        this.disposeFuncFromMostRecentMapping = null;
         this.mappedValueComputed = ko.computed(this.mappingEvaluator, this);
         this.mappedValueComputed.subscribe(this.onMappingResultChanged, this);
         this.previousMappedValue = this.mappedValueComputed.peek();
     }
 
     StateItem.prototype.dispose = function() {
-        var mappedItem = this.mappedValueComputed();
         this.mappedValueComputed.dispose();
+        this.disposeResultFromMostRecentEvaluation();
+    };
+
+    StateItem.prototype.disposeResultFromMostRecentEvaluation = function() {
+        if (this.disposeFuncFromMostRecentMapping) {
+            this.disposeFuncFromMostRecentMapping();
+            this.disposeFuncFromMostRecentMapping = null;
+        }
 
         if (this.mappingOptions.disposeItem) {
+            var mappedItem = this.mappedValueComputed();
             this.mappingOptions.disposeItem(mappedItem);
         }
     };
 
     StateItem.prototype.mappingEvaluator = function() {
-        var mappedValue = this.mappingOptions.mapping(this.inputItem, this.outputArrayIndex),
-            newInclusionState = mappedValue !== exclusionMarker;
+        if (this.isIncluded !== null) { // i.e., not first run
+            // This is a replace-in-place, so call any dispose callbacks
+            // we have for the earlier value
+            this.disposeResultFromMostRecentEvaluation();
+        }
+
+        var mappedValue;
+        if (this.mappingOptions.mapping) {
+            mappedValue = this.mappingOptions.mapping(this.inputItem, this.outputArrayIndex);
+        } else if (this.mappingOptions.mappingWithDisposeCallback) {
+            var mappedValueWithDisposeCallback = this.mappingOptions.mappingWithDisposeCallback(this.inputItem, this.outputArrayIndex);
+            if (!('mappedValue' in mappedValueWithDisposeCallback)) {
+                throw new Error('Return value from mappingWithDisposeCallback should have a \'mappedItem\' property.');
+            }
+            mappedValue = mappedValueWithDisposeCallback.mappedValue;
+            this.disposeFuncFromMostRecentMapping = mappedValueWithDisposeCallback.dispose;
+        } else {
+            throw new Error('No mapping callback given.');
+        }
+
+        var newInclusionState = mappedValue !== exclusionMarker;
 
         // Inclusion state changes can *only* happen as a result of changing an individual item.
         // Structural changes to the array can't cause this (because they don't cause any remapping;
@@ -250,6 +278,15 @@ See the Apache Version 2.0 License for specific language governing permissions a
         // Shorthand syntax - just pass a function instead of an options object
         if (typeof mappingOptions === 'function') {
             mappingOptions = { mapping: mappingOptions };
+        }
+
+        // Validate the options
+        if (mappingOptions.mappingWithDisposeCallback) {
+            if (mappingOptions.mapping || mappingOptions.disposeItem) {
+                throw new Error('\'mappingWithDisposeCallback\' cannot be used in conjunction with \'mapping\' or \'disposeItem\'.');
+            }
+        } else if (!mappingOptions.mapping) {
+            throw new Error('Specify either \'mapping\' or \'mappingWithDisposeCallback\'.');
         }
 
         // Initial state: map each of the inputs

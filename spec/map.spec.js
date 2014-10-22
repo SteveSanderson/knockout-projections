@@ -409,5 +409,191 @@ See the Apache Version 2.0 License for specific language governing permissions a
             expect(modelItem.name.getSubscriptionsCount()).toBe(0);
             expect(disposedItems).toEqual(['ANNIE', 'CLARABEL']);            
         });
+
+        it("calls 'disposeItem' when items are being replaced in-place", function() {
+            var modelItem1 = { name: ko.observable('Annie') },
+                modelItem2 = { name: ko.observable('Clarabel') },
+                underlyingArray = ko.observableArray(),
+                disposedItemsIndices = [],
+                mappedItemNextIndex = 0,
+                mappedArray = underlyingArray.map({
+                    mapping: function(item) {
+                        // Notice there is no extra layer of observability here
+                        // (no ko.computed), so when 'name' changes, this entire
+                        // mapped entry has to get replaced.
+                        return { nameUpper: item.name().toUpperCase(), mappedItemIndex: mappedItemNextIndex++ };
+                    },
+                    disposeItem: function(mappedItem) {
+                        disposedItemsIndices.push(mappedItem.mappedItemIndex);
+                    }
+                });
+
+            underlyingArray.push(modelItem1);
+            underlyingArray.push(modelItem2);
+            expect(mappedArray()).toEqual([
+                { nameUpper: 'ANNIE', mappedItemIndex: 0 },
+                { nameUpper: 'CLARABEL', mappedItemIndex: 1 }
+            ]);
+            expect(disposedItemsIndices).toEqual([]);
+
+            // See that replacing in-place causes disposeItem to fire
+            modelItem2.name('ClarabelMutated');
+            expect(mappedArray()).toEqual([
+                { nameUpper: 'ANNIE', mappedItemIndex: 0 },
+                { nameUpper: 'CLARABELMUTATED', mappedItemIndex: 2 }
+            ]);
+            expect(disposedItemsIndices).toEqual([1]);
+
+            // See that reordering does not trigger any disposeItem calls
+            underlyingArray.reverse();
+            expect(mappedArray()).toEqual([
+                { nameUpper: 'CLARABELMUTATED', mappedItemIndex: 2 },
+                { nameUpper: 'ANNIE', mappedItemIndex: 0 }
+            ]);
+            expect(disposedItemsIndices).toEqual([1]);
+
+            // See that actual removal does trigger a disposeItem call
+            underlyingArray.shift();
+            expect(mappedArray()).toEqual([
+                { nameUpper: 'ANNIE', mappedItemIndex: 0 }
+            ]);
+            expect(disposedItemsIndices).toEqual([1, 2]);
+        });
+
+        it("is possible to provide a 'mappingWithDisposeCallback' option to combine both 'mapping' and 'disposeItem' in one", function() {
+            // If you 'mapping' callback wants to create some per-item resource that needs disposal,
+            // but that item is not the mapping result itself, then you would struggle to implement
+            // the disposal because 'disposeItem' only gives you the mapping result, and not any
+            // other context that helps you find the other per-item resource you created.
+            // To solve this, 'mappingWithDisposeCallback' is an alternative to 'mapping'. Your return
+            // value should be an object of the form { mappedValue: ..., dispose: function() { ... } },
+            // and then the 'dispose' callback will be invoked when the mappedValue should be disposed.
+
+            var underlyingArray = ko.observableArray([
+                    { name: ko.observable('alpha') },
+                    { name: ko.observable('beta') },
+                    { name: ko.observable('gamma') }
+                ]),
+                alphaObject = underlyingArray()[0],
+                perItemResources = {},
+                mappedArray = underlyingArray.map({
+                    mappingWithDisposeCallback: function(value, index) {
+                        var name = value.name();
+                        perItemResources[name] = { disposed: false };
+
+                        return {
+                            mappedValue: name.toUpperCase(),
+                            dispose: function() { perItemResources[name].disposed = true; }
+                        };
+                    }
+                });
+            
+            expect(mappedArray()).toEqual(['ALPHA', 'BETA', 'GAMMA']);
+            expect(perItemResources).toEqual({
+                alpha: { disposed: false },
+                beta: { disposed: false },
+                gamma: { disposed: false }
+            });
+
+            // See that removal triggers the per-item dispose callback
+            underlyingArray.splice(1, 1);
+            expect(mappedArray()).toEqual(['ALPHA', 'GAMMA']);
+            expect(perItemResources).toEqual({
+                alpha: { disposed: false },
+                beta: { disposed: true },
+                gamma: { disposed: false }
+            });
+
+            // See that reordering does not trigger the per-item dispose callback
+            underlyingArray.reverse();
+            expect(mappedArray()).toEqual(['GAMMA', 'ALPHA']);
+            expect(perItemResources).toEqual({
+                alpha: { disposed: false },
+                beta: { disposed: true },
+                gamma: { disposed: false }
+            });
+
+            // See that replace-in-place does trigger the per-item dispose callback
+            alphaObject.name('replaced');
+            expect(mappedArray()).toEqual(['GAMMA', 'REPLACED']);
+            expect(perItemResources).toEqual({
+                alpha: { disposed: true },
+                beta: { disposed: true },
+                gamma: { disposed: false },
+                replaced: { disposed: false }
+            });
+        });
+
+        it("will attempt to disposed mapped items on every evaluation, even if the evaluator returns the same object instances each time", function() {
+            // It would be unusual to have a mapping evaluator that returns the same object instances each time
+            // it is called, but if you do that, we will still tell you to dispose the item before every evaluation
+            var underlyingArray = ko.observableArray([1, 2, 3]),
+                constantMappedValue = { theMappedValue: true },
+                disposeCount = 0,
+                mappedArray = underlyingArray.map({
+                    mappingWithDisposeCallback: function(item) {
+                        return {
+                            mappedValue: constantMappedValue,
+                            dispose: function() {
+                                disposeCount++;
+                            }
+                        }
+                    }
+                });
+
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(0);
+
+            // Adding items doesn't trigger disposal
+            underlyingArray.push(4);
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue, constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(0);
+
+            // Removing items does
+            underlyingArray.splice(1, 2);
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(2);
+
+            // Reordering items does not
+            underlyingArray.reverse();
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(2);
+
+            // Replacing items does
+            underlyingArray([5, 6]);
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(4);
+
+            // Disposing the entire mapped array does
+            mappedArray.dispose();
+            expect(mappedArray()).toEqual([constantMappedValue, constantMappedValue]);
+            expect(disposeCount).toEqual(6);
+        });
+
+        it("is mandatory to specify 'mapping' or 'mappingWithDisposeCallback'", function() {
+            var underlyingArray = ko.observableArray([1, 2, 3]);
+
+            expect(function() {
+                underlyingArray.map({ /* empty options */ });
+            }).toThrow('Specify either \'mapping\' or \'mappingWithDisposeCallback\'.');
+        });
+
+        it("is not allowed to specify 'mappingWithDisposeCallback' in conjunction with 'mapping' or 'disposeItem'", function() {
+            var underlyingArray = ko.observableArray([1, 2, 3]);
+
+            expect(function() {
+                underlyingArray.map({
+                    mapping: function() {  },
+                    mappingWithDisposeCallback: function() {  }
+                });
+            }).toThrow('\'mappingWithDisposeCallback\' cannot be used in conjunction with \'mapping\' or \'disposeItem\'.');
+
+            expect(function() {
+                underlyingArray.map({
+                    disposeItem: function() {  },
+                    mappingWithDisposeCallback: function() {  }
+                });
+            }).toThrow('\'mappingWithDisposeCallback\' cannot be used in conjunction with \'mapping\' or \'disposeItem\'.');
+        });
     });
 })();
