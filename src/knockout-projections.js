@@ -373,13 +373,13 @@ See the Apache Version 2.0 License for specific language governing permissions a
 
     // Determines which module loading scenario we're in, grabs dependencies, and attaches to KO
     function prepareExports() {
-        if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+        if (typeof define === 'function' && define.amd) {
+            define(['knockout'], attachToKo);
+        } else if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
             // Node.js case - load KO synchronously
             var ko = require('knockout');
             attachToKo(ko);
             module.exports = ko;
-        } else if (typeof define === 'function' && define.amd) {
-            define(['knockout'], attachToKo);
         } else if ('ko' in global) {
             // Non-module case - attach to the global instance
             attachToKo(global.ko);
