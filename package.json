@@ -8,7 +8,6 @@
   },
   "dependencies": {
     "knockout": "~3.0.0",
-    "jasmine-reporters": "~0.2.1"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
@@ -17,7 +16,8 @@
     "grunt-contrib-concat": "~0.3.0",
     "grunt-contrib-watch": "~0.4.3",
     "grunt-jasmine-node": "~0.1.0",
-    "grunt-string-replace": "~0.2.7"
+    "grunt-string-replace": "~0.2.7",
+    "jasmine-reporters": "~0.2.1"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
